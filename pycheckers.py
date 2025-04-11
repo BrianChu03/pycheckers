@@ -471,7 +471,23 @@ class GameState:
 
         # No game over condition met
         return None
-
+    
+# ----- Mandatory Capture Check for UI Update ----- #
+def update_mandatory_capture(game_state):
+    must_capture = False
+    for row in range(8):
+        for col in range(8):
+            tile = game_state.board[row][col]
+            # Ensure tile belongs to current player
+            if tile.hasChecker and tile.hasChecker.is_white == (game_state.turn == 'white'):
+                moves = game_state.legal_moves((row, col), hop=False)
+                # Check if any of the moves are captures
+                if any(abs(move[0] - row) == 2 for move in moves):
+                    must_capture = True
+                    break
+        if must_capture:
+            break
+    game_state.must_capture = must_capture
 
 # ----- Reset Game Button Behavior ----- #
 '''
@@ -523,6 +539,14 @@ instructions = [
     "- Click 'New Game' to reset the game anytime."
 ]
 
+# Right panel initializations
+RIGHT_PANEL_WIDTH = 240
+RIGHT_PANEL_HEIGHT = 100
+right_panel_x = board_x + board_width + 20
+right_panel_y = panel_y
+right_panel_rect = pygame.Rect(right_panel_x, right_panel_y, RIGHT_PANEL_WIDTH, RIGHT_PANEL_HEIGHT)
+status_font = pygame.font.Font(None, 24)
+
 # Initial creation of board and checkers
 reset_game()
 
@@ -532,6 +556,9 @@ new_game_button = Button(panel_x + PANEL_WIDTH/6, panel_y + 550, 200, 50, "New G
 
 # ----- Main Game Loop ----- #
 while running:
+    # Update game state for mandatory capture every frame
+    update_mandatory_capture(game_state)
+
     game_over_status = None
 
     # If user quits game (click x to close window)
@@ -617,7 +644,7 @@ while running:
     for checker in checkers:
         checker.draw(screen)
 
-    # Draw Right-side Panel (Holding Reset)
+    # Draw left-side Panel (Holding Reset)
     pygame.draw.rect(screen, (200,200,200), panel_rect)
     padding = 10
     # Render instructions
@@ -644,11 +671,23 @@ while running:
                 v_row, v_col = move
                 valid_tile = game_state.board[v_row][v_col]
                 pygame.draw.rect(screen, flash_color, (valid_tile.x_start, valid_tile.y_start, valid_tile.width_height, valid_tile.width_height), 3)
-        else: # No mandatory capture available
+        else: # No mandatory
             for move in game_state.valid_moves:
                 v_row, v_col = move
                 valid_tile = game_state.board[v_row][v_col]
                 pygame.draw.rect(screen, (0, 255, 0), (valid_tile.x_start, valid_tile.y_start, valid_tile.width_height, valid_tile.width_height), 3)
+
+    # Draw right-side panel
+    pygame.draw.rect(screen, (200,200,200), right_panel_rect)
+    move_status = f"Moves since last capture: {game_state.moves_since_last_capture}"
+    if game_state.must_capture:
+        capture_status = ["Mandatory Capture Available!", "MUST CAPTURE"]
+    else:
+        capture_status = f""
+    draw_instructions(screen, capture_status, status_font, (255,0,0), right_panel_x + padding, right_panel_y + 40, RIGHT_PANEL_WIDTH - (2 * padding))
+    # Draw moves status text
+    moves_text_surface = status_font.render(move_status, True, (0, 0, 0))
+    screen.blit(moves_text_surface, (right_panel_x + padding, right_panel_y + padding))
 
     # --- Check and Display Win Screen ---
     if game_over_status:
