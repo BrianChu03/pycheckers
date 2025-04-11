@@ -1,3 +1,10 @@
+'''
+Program 3
+- Brian Chu
+    bbch223@uky.edu
+- Clark Conrad
+    caco375@uky.edu
+'''
 import pygame
 
 from pygame.locals import (
@@ -6,12 +13,9 @@ from pygame.locals import (
     KEYDOWN,
     QUIT,
 )
-# Direction Constants
-NORTHWEST = (-1, -1)
-NORTHEAST = (-1, 1)
-SOUTHWEST = (1, -1)
-SOUTHEAST = (1, 1)
 
+
+# ----- Pygame Initializations ----- #
 pygame.init()
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
@@ -21,7 +25,14 @@ running = True
 selected_piece = None
 turn = 'white'
 
-# ----- Setup Menu Graphical Components -
+# Direction Constants
+NORTHWEST = (-1, -1)
+NORTHEAST = (-1, 1)
+SOUTHWEST = (1, -1)
+SOUTHEAST = (1, 1)
+
+
+# ----- Setup Menu Graphical Components ----- #
 '''
     Button Class:
         Parameterize button size, text, and color
@@ -102,6 +113,7 @@ def draw_instructions(surface, instructions, font, color, x, y, max_width, line_
         Displays a win message for the winner
         Counts down 5 seconds before resetting the game
         Allows user to exit during countdown
+        Separate draw function since it only appears when a win occurs
 '''
 def show_win_screen_and_reset(game_over_status):
     global screen, clock, running
@@ -112,7 +124,8 @@ def show_win_screen_and_reset(game_over_status):
         win_message = f"{game_over_status.capitalize()} Wins!"
     else: # Should not happen, but just in case
         win_message = "Game Over!"
-
+    
+    # Win screen initalizations
     box_width = 400
     box_height = 200
     box_x = (SCREEN_WIDTH - box_width) // 2
@@ -130,25 +143,26 @@ def show_win_screen_and_reset(game_over_status):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False # Signal the main loop to terminate
-                return # Exit this function immediately
+                return
             if event.type == KEYDOWN:
                  if event.key == K_ESCAPE: # Allow escape to quit too
                      running = False
                      return
 
-        # Calculate Remaining Time
+        # calculate remaining time
         elapsed_time = pygame.time.get_ticks() - start_time
         remaining_ms = duration - elapsed_time
         remaining_sec = max(0, (remaining_ms + 999) // 1000)
 
-        # Draw the message box
+        # draw the box
         pygame.draw.rect(screen, box_color, box_rect, border_radius=15)
         pygame.draw.rect(screen, text_color, box_rect, width=2, border_radius=15) # Optional border
 
-        # Render and position text
+        # position the text in the middle of the box
         win_text_surface = win_font_large.render(win_message, True, text_color)
         win_text_rect = win_text_surface.get_rect(center=(box_rect.centerx, box_rect.centery - 30))
 
+        # use the tick to countdown 5 seconds before resetting
         countdown_text = f"Resetting in {remaining_sec} seconds..."
         countdown_surface = win_font_small.render(countdown_text, True, text_color)
         countdown_rect = countdown_surface.get_rect(center=(box_rect.centerx, box_rect.centery + 40))
@@ -159,12 +173,12 @@ def show_win_screen_and_reset(game_over_status):
         # update display
         pygame.display.flip()
 
-        # loop speed
-        clock.tick(30) # Update roughly 30 times per second
+        clock.tick(30)
 
     # reset game when loop is finished
     if running: # Only reset if the user didn't quit during the countdown
         reset_game()
+
 
 # ----- Setup Board and Checker Graphical Components ----- #
 '''
@@ -178,7 +192,7 @@ class Tile:
         self.y_start = y_start
         self.width_height = width_height
         self.is_white = is_white
-        self.hasChecker = hasChecker
+        self.hasChecker = hasChecker # For gamestate logic
 
     def draw(self, surface):
         if self.is_white:
@@ -203,6 +217,7 @@ class Checker:
         
 
     def draw(self, surface):
+        # THIS IS MESSED UP. But if I fix it, idk what it will break so we'll just leave it...
         if self.is_white:
             color = (255, 0, 0)  
         else:
@@ -236,13 +251,14 @@ def create_board(board_x, board_y, tile_size):
 '''
     set_checkers() Function:
         Sets up the initial positions of the checkers on the board
-        Creates Checker objects and assigns them to the appropriate tiles
+        Creates checker objects and assigns them to the appropriate tiles
 '''
 def set_checkers(board, tile_size):
     checkers = []
     
     radius = tile_size // 2 - 10
-
+    
+    # Go through each row and check if the tile is black, if black, place checker
     for row_i, row in enumerate(board):
         for tile in row:
             tile.hasChecker = None
@@ -261,6 +277,7 @@ def set_checkers(board, tile_size):
                     checkers.append(checker_obj)
                     tile.hasChecker = checker_obj
     return checkers
+
 
 
 # ----- Game State Logic and Behavior ----- #
@@ -300,9 +317,9 @@ class GameState:
         
         # Regular pieces can only move forward
         if not checker.king:
-            if checker.is_white:  # White moves "up" (negative row)
+            if checker.is_white:  # White moves up
                 moves.extend([self.rel(NORTHWEST, (x,y)), self.rel(NORTHEAST, (x,y))])
-            else:  # Red moves "down" (positive row)
+            else:  # Red moves down
                 moves.extend([self.rel(SOUTHWEST, (x,y)), self.rel(SOUTHEAST, (x,y))])
         else:  # Kings can move in all directions
             moves.extend([
@@ -380,7 +397,6 @@ class GameState:
 
         checker = from_tile.hasChecker
 
-        # ----- Draw Counter Logic ------ #
         captured_piece = False # Flag to track if a capture happened this move
 
         # Handle captures
@@ -397,7 +413,7 @@ class GameState:
             if checker_to_remove in checkers: # Ensure it's actually in the list
                  checkers.remove(checker_to_remove)
             else:
-                 # Fallback check if instance comparison fails (less likely needed now)
+                 # Check if instance comparison fails (idk if we still need this)
                  for i, c in enumerate(checkers):
                       if c.x_pos == jumped_tile.x_start + tile_size // 2 and \
                          c.y_pos == jumped_tile.y_start + tile_size // 2:
@@ -420,12 +436,12 @@ class GameState:
                 # We don't increment moves_since_last_capture here as it was reset
                 return False # Turn isn't over yet
 
-        else: # Normal move (no capture)
+        else: # No capture
              from_tile.hasChecker = None
              to_tile.hasChecker = checker
              checker.x_pos = board_x + to_col * tile_size + tile_size // 2
              checker.y_pos = board_y + to_row * tile_size + tile_size // 2
-             # <<< INCREMENT counter only on non-capture moves
+             # increment counter on non capture moves
              self.moves_since_last_capture += 1
 
         # Handle king promotion
@@ -472,7 +488,11 @@ class GameState:
         # No game over condition met
         return None
     
-# ----- Mandatory Capture Check for UI Update ----- #
+'''
+update_mandatory_capture() Function:
+    Checks for a mandatory capture
+    Called at the beginning of each frame for logical updates
+'''
 def update_mandatory_capture(game_state):
     must_capture = False
     for row in range(8):
@@ -489,7 +509,6 @@ def update_mandatory_capture(game_state):
             break
     game_state.must_capture = must_capture
 
-# ----- Reset Game Button Behavior ----- #
 '''
     reset_game() Function:
         Initialize game board
@@ -501,6 +520,7 @@ def reset_game():
     checkers = set_checkers(board, tile_size)
     game_state = GameState(board)
     print("Game reset")
+
 
 # ----- Initialize Game State ----- #
 # Initialization of panel dimensions for menu
@@ -561,7 +581,7 @@ while running:
 
     game_over_status = None
 
-    # If user quits game (click x to close window)
+    # If user quits game
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -581,46 +601,50 @@ while running:
                 game_state.valid_moves = []
                 continue
                 
-            
+            # Print Statements included for debug in terminal #
+            # If a capture is found, only allow clicking the forced piece or its valid capture moves
             if game_state.must_capture and (row, col) != game_state.selected_piece:
-                 # If a capture is found, only allow clicking the forced piece or its valid capture moves
                  if game_state.selected_piece and (row, col) not in game_state.valid_moves:
                       print("Must complete capture sequence.")
                       continue # Ignore clicks elsewhere during multi-capture
             
             tile = game_state.board[row][col]
-
+            
+            # Check if any piece for this turn has a mandatory capture available
             if tile.hasChecker and tile.hasChecker.is_white == (game_state.turn == 'white'):
-                # Check if any piece for this turn has a mandatory capture available
                 must_capture_overall = False
                 for r_check in range(8):
                     for c_check in range(8):
                         check_tile = game_state.board[r_check][c_check]
                         if check_tile.hasChecker and check_tile.hasChecker.is_white == (game_state.turn == 'white'):
                             piece_capture_moves = game_state.legal_moves((r_check, c_check), hop=False)
+                            # Check if any available move is a capturing move
                             if any(abs(move[0] - r_check) == 2 for move in piece_capture_moves):
                                 must_capture_overall = True
-
+                # check for a mandatory capture available on the board
                 if must_capture_overall:
+                    # Selected piece is or isn't able to capture
                     if any(abs(move[0] - row) == 2 for move in game_state.legal_moves((row, col))):
                         game_state.selected_piece = (row, col)
                         game_state.valid_moves = game_state.legal_moves((row, col))
                         print(f"Selected piece {(row,col)} for mandatory capture.")
                     else:
                         print("Cannot select this piece, a capture is mandatory elsewhere.")
+                # No mandatory captures; normal behavior
                 else:
                     game_state.selected_piece = (row, col)
                     game_state.valid_moves = game_state.legal_moves((row, col))
                     print(f"Selected piece {(row,col)}.")
                 continue
-
+            
+            # Piece has already been selected
             if game_state.selected_piece:
-                print(f"Attempting move from {game_state.selected_piece} to {(row, col)}") # Debug
+                print(f"Attempting move from {game_state.selected_piece} to {(row, col)}")
                 if (row, col) in game_state.valid_moves:
                     turn_complete = game_state.move_piece(game_state.selected_piece, (row, col))
 
                     if turn_complete:
-                        # --- Turn potentially ends, check game over ---
+                        # Turn potentially ends, check game over
                         game_state.turn = 'red' if game_state.turn == 'white' else 'white'
                         game_state.selected_piece = None
                         game_state.valid_moves = []
@@ -633,10 +657,9 @@ while running:
                     # Invalid move clicked
                     print(f"Invalid move to {(row, col)}. Valid: {game_state.valid_moves}")
 
-    # Default screen color (gray)
     screen.fill((128, 128, 128))
 
-    # Draw Board and Checkers (Left Side)
+    # Draw board and checkers
     for row in board:
         for tile in row:
             tile.draw(screen)
@@ -644,7 +667,7 @@ while running:
     for checker in checkers:
         checker.draw(screen)
 
-    # Draw left-side Panel (Holding Reset)
+    # Draw left-side Panel with newgame button
     pygame.draw.rect(screen, (200,200,200), panel_rect)
     padding = 10
     # Render instructions
@@ -653,25 +676,26 @@ while running:
     # Draw reset button
     new_game_button.draw(screen)
 
-    # Draw Highlights (Selected piece and valid moves)
+    # Draw highlights for selected pieces
     if game_state.selected_piece:
         s_row, s_col = game_state.selected_piece
         selected_tile = game_state.board[s_row][s_col]
         pygame.draw.rect(screen, (255,255,0), (selected_tile.x_start, selected_tile.y_start, selected_tile.width_height, selected_tile.width_height), 3) # Yellow outline
 
+    # if statement that flashes highlight when a piece must be captured
     if game_state.valid_moves:
         if game_state.must_capture:
             # Toggle flash every 500ms to signal mandatory capture
             flash_on = pygame.time.get_ticks() % 1000 < 500
             if flash_on:
-                flash_color = (255, 0, 0)  # Red flash
+                flash_color = (255, 0, 0)
             else:
                 flash_color = (255, 255, 0)
             for move in game_state.valid_moves:
                 v_row, v_col = move
                 valid_tile = game_state.board[v_row][v_col]
                 pygame.draw.rect(screen, flash_color, (valid_tile.x_start, valid_tile.y_start, valid_tile.width_height, valid_tile.width_height), 3)
-        else: # No mandatory
+        else: # No mandatory move
             for move in game_state.valid_moves:
                 v_row, v_col = move
                 valid_tile = game_state.board[v_row][v_col]
@@ -683,13 +707,13 @@ while running:
     if game_state.must_capture:
         capture_status = ["Mandatory Capture Available!", "MUST CAPTURE"]
     else:
-        capture_status = f""
+        capture_status = f"" # get rid of the message if no mandatory capture
     draw_instructions(screen, capture_status, status_font, (255,0,0), right_panel_x + padding, right_panel_y + 40, RIGHT_PANEL_WIDTH - (2 * padding))
     # Draw moves status text
     moves_text_surface = status_font.render(move_status, True, (0, 0, 0))
     screen.blit(moves_text_surface, (right_panel_x + padding, right_panel_y + padding))
 
-    # --- Check and Display Win Screen ---
+    # Display win screen
     if game_over_status:
          show_win_screen_and_reset(game_over_status)
          game_over_status = None # Clear status after handling
